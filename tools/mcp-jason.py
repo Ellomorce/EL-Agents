@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import httpx
 import random
 import uvicorn
 from collections import OrderedDict
@@ -9,8 +10,13 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastmcp import FastMCP
 from pydantic import BaseModel
+from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
+from starlette.routing import Mount
 from typing import Optional, List
+import sys # Disable when executing under root folder
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Disable when executing under root folder
+from utils.llm_client import GeminiClient, OllamaClient
 
 class PlaceResponse(BaseModel):
     id: int
@@ -18,30 +24,33 @@ class PlaceResponse(BaseModel):
     type: str
     specialty: str
 
+class PlaceName(BaseModel):
+    place_name: str
+
 class NewPlace(BaseModel):
     name: str
     type: str
     specialty: str
     menu: Optional[List[dict]] = None
 
+class UpdateMenu(BaseModel):
+    place_name: str
+    updated_menu: List[dict]
+
+class PlaceType(BaseModel):
+    type: str
+
+class TestRequest(BaseModel):
+    request: str
+
 load_dotenv(".env")
 places_path = os.getenv("PLACES_PATH")
 file_lock = asyncio.Lock()
 
-
-# mcp = FastMCP("Jason")
-# mcp_app = mcp.http_app(path='/mcp')
-# app = FastAPI(title="Lunch&Drink API", lifespan=mcp_app.lifespan)
 app = FastAPI(title="Lunch&Drink API")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# app.mount("/yourjason", mcp_app)
+mcp = FastMCP()
 
+# Declaring API Endpoints
 @app.get("/")
 def read_root():
     return {"message": "API Server running normally."}
@@ -59,7 +68,7 @@ async def locked_file_operation(mode: str = "r"):
     finally:
         file_lock.release()
 
-@app.get("/places/get_places", response_model=List[PlaceResponse])
+@app.get("/get_places", response_model=List[PlaceResponse])
 async def get_places(type: Optional[str] = None):
     with open(places_path, "r", encoding="utf-8") as file:
         data = json.load(file)
@@ -68,23 +77,25 @@ async def get_places(type: Optional[str] = None):
         places = [place for place in places if place.type == type]
     return places
 
-@app.post("/places/query_menu")
-async def query_menu(request: Request):
+@app.post("/query_menu")
+async def query_menu(payload: PlaceName):
     try:
-        data = await request.json()
-        name = data.get("place_name")
-        if not name:
+        data = payload.model_dump()
+        query_name = data.get("place_name")
+        if not query_name:
             raise HTTPException(status_code=400, detail="place_name is required")
         with open(places_path, "r", encoding="utf-8") as file:
             places_data = json.load(file)
         for place in places_data:
-            if place.get("name") == name:
+            if place.get("name") == query_name:
                 return {"菜單": place.get("menu")}
-        raise HTTPException(status_code=404, detail="Place not found")
+            else:
+                return {"狀態": "您尋找的餐廳未被登錄"}
+        raise HTTPException(status_code=404, detail="Retrieving Menu Error.")
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format")
 
-@app.post("/places/create_place")
+@app.post("/create_place")
 async def create_place(new_place: NewPlace):
    try:
        async with locked_file_operation("r") as file:
@@ -116,10 +127,10 @@ async def create_place(new_place: NewPlace):
    except Exception as errmsg:
        raise HTTPException(status_code=500, detail=str(errmsg))
 
-@app.put("/places/update_menu")
-async def update_menu(request: Request):
+@app.put("/update_menu")
+async def update_menu(payload: UpdateMenu):
    try:
-       data = await request.json()
+       data = payload.model_dump()
        place_name = data.get("place_name")
        updated_menu = data.get("updated_menu")
        if not place_name:
@@ -146,11 +157,11 @@ async def update_menu(request: Request):
        raise HTTPException(status_code=400, detail="Invalid JSON format")
    except Exception as err:
        raise HTTPException(status_code=500, detail=str(err))
-   
-@app.delete("/places/delete_place")
-async def delete_place(request: Request):
+
+@app.delete("/delete_place")
+async def delete_place(payload: PlaceName):
    try:
-       data = await request.json()
+       data = payload.model_dump()
        place_name = data.get("place_name")
        if not place_name:
            raise HTTPException(status_code=400, detail="place_name is required")
@@ -176,10 +187,10 @@ async def delete_place(request: Request):
    except Exception as err:
        raise HTTPException(status_code=500, detail=str(err))
 
-@app.post("/places/random_place")
-async def random_place(request: Request):
+@app.post("/random_place")
+async def random_place(payload: PlaceType):
   try:
-      data = await request.json()
+      data = payload.model_dump()
       place_type = data.get("type")
       if not place_type:
           raise HTTPException(status_code=400, detail="type is required")
@@ -198,5 +209,88 @@ async def random_place(request: Request):
   except Exception as err:
       raise HTTPException(status_code=500, detail=str(err))
 
+# Defining MCP Tools
+@mcp.tool(
+        title="美食選擇器",
+        name="mcp_draw_gourmet", # Please note that this will override the function name.
+        description="Help users randomly selecting a food shop or drink shop. Ask first if they want food or drink. Call mcp_draw_gourmet with a JSON body, e.g. {\"type\":\"food\"}. Only food and drink are valid.",
+        tags={"catalog", "randomizer"},
+        meta={"version": "1.1", "author": "Shaun"})
+async def mcp_draw_gourmet(payload: str):
+    try:
+        data = json.loads(payload)
+    except Exception as err:
+      raise HTTPException(status_code=400, detail=str(err))
+    async with httpx.AsyncClient() as client:
+        response = await client.post("http://127.0.0.1:8081/random_place", json=data)
+        return response.json()
+    
+@mcp.tool(
+        title="美食店家清單",
+        name="mcp_get_gourmet_list", # Please note that this will override the function name.
+        description="Help users to get restaurant list or drink shop list.",
+        tags={"catalog", "retriever"},
+        meta={"version": "1.0", "author": "Shaun"})
+async def mcp_get_gourmet_list(type: str = None):
+    if type:
+        if type == "food" or "drink":
+            place_url = f"http://127.0.0.1:8081/get_places?type={type}"
+        else:
+            place_url = "http://127.0.0.1:8081/get_places"
+    else:
+        place_url = "http://127.0.0.1:8081/get_places"
+    async with httpx.AsyncClient() as client:
+        response = await client.get(place_url)
+        return response.json()
+
+@mcp.tool(
+        title="查詢餐廳菜單",
+        name="mcp_query_menu", # Please note that this will override the function name.
+        description="Help users to get the menu of queried restaurant or drink shop. Call mcp_query_menu with a JSON string, e.g. {\"place_name\":\"McDonald's\"}.",
+        tags={"catalog", "retriever"},
+        meta={"version": "1.0", "author": "Shaun"})
+async def mcp_query_menu(place_name: str):
+    try:
+        data = json.loads(place_name)
+    except Exception as err:
+      raise HTTPException(status_code=400, detail=str(err))
+    async with httpx.AsyncClient() as client:
+        response = await client.post("http://127.0.0.1:8081/query_menu", json=data)
+        return response.json()
+
+@mcp.tool(
+        title="新增餐廳",
+        name="mcp_add_gourmet_shop", # Please note that this will override the function name.
+        description="Help users to add gourmet shop to the database. Call mcp_add_gourmet_shop with a JSON string, e.g. {\"name\": \"McDonald's\",\"type\": \"food\",\"specialty\":\"Hamburger, Fried Chicken, Fries, McNuggets\",\"menu\": [{\"Big Mac\": \"81\"},{\"McNuggets 6pcs\": \"69\"}]}.",
+        tags={"catalog", "creator"},
+        meta={"version": "1.0", "author": "Shaun"})
+async def mcp_add_gourmet_shop(shop_info: str):
+    try:
+        data = json.loads(shop_info)
+    except Exception as err:
+      raise HTTPException(status_code=400, detail=str(err))
+    async with httpx.AsyncClient() as client:
+        response = await client.post("http://127.0.0.1:8081/create_place", json=data)
+        return response.json()
+
+# Mounting MCP to FastAPI
+mcp_app = mcp.http_app(transport="streamable-http")
+routes = [
+    *mcp_app.routes,
+    *app.routes
+]
+jasonapp = FastAPI(
+    routes=routes,
+    lifespan=mcp_app.lifespan,
+)
+
+jasonapp.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8081)
+    uvicorn.run(jasonapp, host="127.0.0.1", port=8081)

@@ -1,0 +1,6 @@
+precise:
+  temperature: 0.7
+  top_p: 1.0
+  top_k: 10.0
+  max_output_tokens: 4096
+  frequency_penalty: 0.1
