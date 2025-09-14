@@ -1,6 +1,7 @@
 #%%
 import os
 import ollama
+import openai
 import yaml
 from utils import response_schema
 from dotenv import load_dotenv
@@ -241,15 +242,94 @@ class OllamaClient:
         except Exception as errmsg:
                 response = None
                 return errmsg, response
-        
-class LitellmClient:
 
-    def __init__(self) -> None:
+class llm_client:
+
+    def __init__(self):
         self.config_path = "llm_config.yaml"
         self.prompt_path = "prompts.yaml"
+        self.client = openai.OpenAI(
+            api_key = os.getenv("MODEL_KEY"),
+            base_url = os.getenv("LITELLM_BASE_URL"), 
+            default_headers= {"conten-type": "application/json"}
+            )
+        
+    def select_schema(scheme_name):
+        schema_class = getattr(response_schema, scheme_name)
+        scheme_dict = schema_class.model_json_schema()
+        result_schema = {
+            "type": scheme_dict["type"],
+            "properties": scheme_dict["properties"],
+            "required": scheme_dict["required"]
+            }
+        return result_schema
+        
+    def chat(self, 
+             model, 
+             user_query, 
+             frequency_penalty, 
+             presence_penalty,
+             max_completion_tokens,
+             max_tokens, 
+             temperature, 
+             top_p, 
+             stream
+             ):
+        response = self.client.chat.completions.create(
+            model=model,
+            messages = 
+            [
+                {"role": "user", "content": user_query}
+            ],
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            max_completion_tokens=max_completion_tokens,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            stream=stream
+            )
+        if stream == True:
+            for chunk in response:
+                print(chunk.choices[0].delta.content, end='', flush=True)
+        else:
+            print(response.choices[0].message.content)
+        return response
 
-    def chat():
-        pass
+    def structured_chat(self, 
+             model, 
+             user_query, 
+             frequency_penalty, 
+             presence_penalty,
+             max_completion_tokens,
+             max_tokens, 
+             temperature, 
+             top_p, 
+             result_schema=None
+             ):
+        if result_schema == None:
+            response_format = {"type":"json_object"}
+        else:
+            response_format = result_schema
+        response = self.client.chat.completions.create(
+            model=model,
+            messages = 
+            [
+                {"role": "user", "content": user_query}
+            ],
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            max_completion_tokens=max_completion_tokens,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            response_format=response_format,
+            )
+        if result_schema == None:
+            print(response.choices[0].message.content)
+        else:
+            print("Received={}".format(response))
+        return response
 #%%
 if __name__=='__main__':
     # llm = GeminiClient()

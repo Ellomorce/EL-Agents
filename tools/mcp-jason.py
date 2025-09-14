@@ -273,6 +273,66 @@ async def mcp_add_gourmet_shop(shop_info: str):
         response = await client.post("http://127.0.0.1:8081/create_place", json=data)
         return response.json()
 
+#待做
+# @mcp.tool(
+#         title="更新餐廳菜單",
+#         name="mcp_update_menu", # Please note that this will override the function name.
+#         description="XXX. Call mcp_update_menu with a JSON string, e.g. {\"place_name\":\"McDonald's\"}.",
+#         tags={"catalog", "updater"},
+#         meta={"version": "1.0", "author": "Shaun"})
+# async def mcp_update_menu(new_menu: str):
+#     pass
+
+# @mcp.tool(
+#         title="刪除餐廳",
+#         name="mcp_delete_gourmet_shop", # Please note that this will override the function name.
+#         description="XXX. Call mcp_delete_gourmet_shop with a JSON string, e.g. {\"place_name\":\"McDonald's\"}.",
+#         tags={"catalog", "deleter"},
+#         meta={"version": "1.0", "author": "Shaun"})
+# async def mcp_delete_gourmet_shop(place_name: str):
+#     pass
+
+# MCP 測試用
+
+@mcp.tool(
+        title="查詢向量資料庫KBTEST01",
+        name="kbtest_001", # Please note that this will override the function name.
+        description="查詢向量資料庫KBTEST01",
+        tags={"catalog", "retriever"},
+        meta={"version": "1.0", "author": "Shaun"})
+async def mcp_retrieve_kbtest01():
+    response = {
+        "state": "succeed",
+        "content": "kbtest_001"
+    }
+    return response
+
+@mcp.tool(
+        title="查詢向量資料庫KBTEST02",
+        name="kbtest_002", # Please note that this will override the function name.
+        description="查詢向量資料庫KBTEST02",
+        tags={"catalog", "retriever"},
+        meta={"version": "1.0", "author": "Shaun"})
+async def mcp_retrieve_kbtest02():
+    response = {
+        "state": "succeed",
+        "content": "kbtest_002"
+    }
+    return response
+
+@mcp.tool(
+        title="查詢向量資料庫KBTEST03",
+        name="kbtest_002", # Please note that this will override the function name.
+        description="查詢向量資料庫KBTEST03",
+        tags={"catalog", "retriever"},
+        meta={"version": "1.0", "author": "Shaun"})
+async def mcp_retrieve_kbtest03():
+    response = {
+        "state": "succeed",
+        "content": "kbtest_003"
+    }
+    return response
+
 # Mounting MCP to FastAPI
 mcp_app = mcp.http_app(transport="streamable-http")
 routes = [
