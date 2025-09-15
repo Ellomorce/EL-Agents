@@ -9,39 +9,61 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastmcp import FastMCP
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
-from typing import Optional, List
+from typing import Optional, List, Dict
 import sys # Disable when executing under root folder
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Disable when executing under root folder
 from utils.llm_client import GeminiClient, OllamaClient
 
 class PlaceResponse(BaseModel):
+    """
+    Return Format of Get Gourmets List.
+    """
     id: int
     name: str
     type: str
     specialty: str
 
 class PlaceName(BaseModel):
+    """
+    Request Body of Query Menu, Delete Gourmet Shop or other functions which requiring only place_name for input.
+    """
     place_name: str
 
+class MenuItem(RootModel[Dict[str, str]]):
+    """
+    Represents a single item in the menu.
+    """
+    class Config:
+        extra_forbid = True
+
+class UpdateMenu(BaseModel):
+    """
+    Request Body of Update Menu of the Gourmet Shop.
+    """
+    place_name: str
+    updated_menu: List[MenuItem]
+
 class NewPlace(BaseModel):
+    """
+    Request Body of Create Gourmet Shop.
+    """
     name: str
     type: str
     specialty: str
-    menu: Optional[List[dict]] = None
-
-class UpdateMenu(BaseModel):
-    place_name: str
-    updated_menu: List[dict]
+    menu: Optional[List[MenuItem]] = None
 
 class PlaceType(BaseModel):
+    """
+    Request Body of Randomly Picking a Gourmet Shop.
+    """
     type: str
 
-class TestRequest(BaseModel):
-    request: str
+# class TestRequest(BaseModel):
+#     request: str
 
 load_dotenv(".env")
 places_path = os.getenv("PLACES_PATH")
@@ -214,8 +236,7 @@ async def random_place(payload: PlaceType):
         title="美食選擇器",
         name="mcp_draw_gourmet", # Please note that this will override the function name.
         description="Help users randomly selecting a food shop or drink shop. Ask first if they want food or drink. Call mcp_draw_gourmet with a JSON body, e.g. {\"type\":\"food\"}. Only food and drink are valid.",
-        tags={"catalog", "randomizer"},
-        meta={"version": "1.1", "author": "Shaun"})
+        tags={"catalog", "randomizer"})
 async def mcp_draw_gourmet(payload: str):
     try:
         data = json.loads(payload)
@@ -229,8 +250,7 @@ async def mcp_draw_gourmet(payload: str):
         title="美食店家清單",
         name="mcp_get_gourmet_list", # Please note that this will override the function name.
         description="Help users to get restaurant list or drink shop list.",
-        tags={"catalog", "retriever"},
-        meta={"version": "1.0", "author": "Shaun"})
+        tags={"catalog", "retriever"})
 async def mcp_get_gourmet_list(type: str = None):
     if type:
         if type == "food" or "drink":
@@ -247,8 +267,7 @@ async def mcp_get_gourmet_list(type: str = None):
         title="查詢餐廳菜單",
         name="mcp_query_menu", # Please note that this will override the function name.
         description="Help users to get the menu of queried restaurant or drink shop. Call mcp_query_menu with a JSON string, e.g. {\"place_name\":\"McDonald's\"}.",
-        tags={"catalog", "retriever"},
-        meta={"version": "1.0", "author": "Shaun"})
+        tags={"catalog", "retriever"})
 async def mcp_query_menu(place_name: str):
     try:
         data = json.loads(place_name)
@@ -262,8 +281,7 @@ async def mcp_query_menu(place_name: str):
         title="新增餐廳",
         name="mcp_add_gourmet_shop", # Please note that this will override the function name.
         description="Help users to add gourmet shop to the database. Call mcp_add_gourmet_shop with a JSON string, e.g. {\"name\": \"McDonald's\",\"type\": \"food\",\"specialty\":\"Hamburger, Fried Chicken, Fries, McNuggets\",\"menu\": [{\"Big Mac\": \"81\"},{\"McNuggets 6pcs\": \"69\"}]}.",
-        tags={"catalog", "creator"},
-        meta={"version": "1.0", "author": "Shaun"})
+        tags={"catalog", "creator"})
 async def mcp_add_gourmet_shop(shop_info: str):
     try:
         data = json.loads(shop_info)
@@ -274,62 +292,72 @@ async def mcp_add_gourmet_shop(shop_info: str):
         return response.json()
 
 #待做
-# @mcp.tool(
-#         title="更新餐廳菜單",
-#         name="mcp_update_menu", # Please note that this will override the function name.
-#         description="XXX. Call mcp_update_menu with a JSON string, e.g. {\"place_name\":\"McDonald's\"}.",
-#         tags={"catalog", "updater"},
-#         meta={"version": "1.0", "author": "Shaun"})
-# async def mcp_update_menu(new_menu: str):
-#     pass
+@mcp.tool(
+        title="更新餐廳菜單",
+        name="mcp_update_menu", # Please note that this will override the function name.
+        description="Help users to update the menu of a gourmet shop. Call mcp_update_menu with a JSON string, e.g. [{\"place_name\": \"MacDonalds\",\"updated_menu\":[{\"BigMac\": \"81\"},{\"McNuggets 6pcs\": \"69\"}]}].",
+        tags={"catalog", "updater"})
+async def mcp_update_menu(new_menu: str):
+    try:
+        data = json.loads(new_menu)
+    except Exception as err:
+      raise HTTPException(status_code=400, detail=str(err))
+    async with httpx.AsyncClient() as client:
+        response = await client.put("http://127.0.0.1:8081/update_menu", json=data)
+        return response.json()
 
-# @mcp.tool(
-#         title="刪除餐廳",
-#         name="mcp_delete_gourmet_shop", # Please note that this will override the function name.
-#         description="XXX. Call mcp_delete_gourmet_shop with a JSON string, e.g. {\"place_name\":\"McDonald's\"}.",
-#         tags={"catalog", "deleter"},
-#         meta={"version": "1.0", "author": "Shaun"})
-# async def mcp_delete_gourmet_shop(place_name: str):
-#     pass
+@mcp.tool(
+        title="刪除餐廳",
+        name="mcp_delete_gourmet_shop", # Please note that this will override the function name.
+        description="Help users to delete a gourmet shop from database. Call mcp_delete_gourmet_shop with a JSON string, e.g. {\"place_name\":\"McDonald's\"}.",
+        tags={"catalog", "deleter"})
+async def mcp_delete_gourmet_shop(place_name: str):
+    try:
+        data = json.loads(place_name)
+    except Exception as err:
+      raise HTTPException(status_code=400, detail=str(err))
+    async with httpx.AsyncClient() as client:
+        response = await client.delete("http://127.0.0.1:8081/delete_place", json=data)
+        return response
 
 # MCP 測試用
 
 @mcp.tool(
         title="查詢向量資料庫KBTEST01",
         name="kbtest_001", # Please note that this will override the function name.
-        description="查詢向量資料庫KBTEST01",
-        tags={"catalog", "retriever"},
-        meta={"version": "1.0", "author": "Shaun"})
+        description="Query Vector Store KBTEST01, the store contains all the data from creditcard department.",
+        tags={"catalog", "retriever"})
 async def mcp_retrieve_kbtest01():
     response = {
         "state": "succeed",
-        "content": "kbtest_001"
+        "content_id": "kbtest_001",
+        "content": "您所查詢的信用卡發卡案件編號是TEST20250901。"
     }
     return response
 
 @mcp.tool(
         title="查詢向量資料庫KBTEST02",
         name="kbtest_002", # Please note that this will override the function name.
-        description="查詢向量資料庫KBTEST02",
-        tags={"catalog", "retriever"},
-        meta={"version": "1.0", "author": "Shaun"})
+        description="Query Vector Store KBTEST02, the store contains all the data from corporate banking department.",
+        tags={"catalog", "retriever"})
 async def mcp_retrieve_kbtest02():
     response = {
         "state": "succeed",
-        "content": "kbtest_002"
+        "content_id": "kbtest_002",
+        "content": "您查詢的貸款案件TEST20250901目前的狀態是正在審核客戶資料中。"
     }
     return response
 
 @mcp.tool(
         title="查詢向量資料庫KBTEST03",
-        name="kbtest_002", # Please note that this will override the function name.
-        description="查詢向量資料庫KBTEST03",
-        tags={"catalog", "retriever"},
-        meta={"version": "1.0", "author": "Shaun"})
+        name="kbtest_003", # Please note that this will override the function name.
+        description="Query Vector Store KBTEST03, the store contains all the data from audit department.",
+        tags={"catalog", "retriever"})
 async def mcp_retrieve_kbtest03():
     response = {
         "state": "succeed",
-        "content": "kbtest_003"
+        "content_id": "kbtest_003",
+        "content": "您查詢的待審案件TEST20250901已審核通過。"
     }
     return response
 
