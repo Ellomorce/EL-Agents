@@ -46,6 +46,7 @@ class UpdateMenu(BaseModel):
     """
     place_name: str
     updated_menu: List[MenuItem]
+    # updated_menu: List[Dict]
 
 class NewPlace(BaseModel):
     """
@@ -55,15 +56,13 @@ class NewPlace(BaseModel):
     type: str
     specialty: str
     menu: Optional[List[MenuItem]] = None
+    # menu: Optional[List[Dict]] = None
 
 class PlaceType(BaseModel):
     """
     Request Body of Randomly Picking a Gourmet Shop.
     """
     type: str
-
-# class TestRequest(BaseModel):
-#     request: str
 
 load_dotenv(".env")
 places_path = os.getenv("PLACES_PATH")
@@ -109,11 +108,11 @@ async def query_menu(payload: PlaceName):
         with open(places_path, "r", encoding="utf-8") as file:
             places_data = json.load(file)
         for place in places_data:
-            if place.get("name") == query_name:
-                return {"菜單": place.get("menu")}
+            if place["name"] == query_name:
+                return {"菜單": place["menu"]}
             else:
-                return {"狀態": "您尋找的餐廳未被登錄"}
-        raise HTTPException(status_code=404, detail="Retrieving Menu Error.")
+                continue
+        return {"狀態": "您尋找的餐廳未被登錄"}
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format")
 
@@ -235,7 +234,7 @@ async def random_place(payload: PlaceType):
 @mcp.tool(
         title="美食選擇器",
         name="mcp_draw_gourmet", # Please note that this will override the function name.
-        description="Help users randomly selecting a food shop or drink shop. Ask first if they want food or drink. Call mcp_draw_gourmet with a JSON body, e.g. {\"type\":\"food\"}. Only food and drink are valid.",
+        description="Help users randomly selecting a food shop or drink shop. Ask first if they want food or drink. Call mcp_draw_gourmet with a JSON body, e.g. {\"payload\": {\"type\":\"food\"}}. Only food and drink are valid.",
         tags={"catalog", "randomizer"})
 async def mcp_draw_gourmet(payload: str):
     try:
@@ -243,82 +242,115 @@ async def mcp_draw_gourmet(payload: str):
     except Exception as err:
       raise HTTPException(status_code=400, detail=str(err))
     async with httpx.AsyncClient() as client:
-        response = await client.post("http://127.0.0.1:8081/random_place", json=data)
-        return response.json()
+        response = await client.post("http://10.13.60.113:8081/random_place", json=data)
+        if response.status_code == 200:
+            return f"response_text: {response.json()}"
+        else:  
+            print(f"Error: Received status code {response.status_code}")  
+        return {"error": "Failed to Draw Shop."}  
     
 @mcp.tool(
         title="美食店家清單",
         name="mcp_get_gourmet_list", # Please note that this will override the function name.
-        description="Help users to get restaurant list or drink shop list.",
+        description="Help users to get restaurant list or drink shop list. To Call mcp_get_gourmet_list, you need to input a single string from food or drink, any other strings are invalid input which will cause error.",
         tags={"catalog", "retriever"})
-async def mcp_get_gourmet_list(type: str = None):
-    if type:
-        if type == "food" or "drink":
-            place_url = f"http://127.0.0.1:8081/get_places?type={type}"
+async def mcp_get_gourmet_list(payload: str = None):
+    if payload:
+        if "food" in payload:
+            place_url = f"http://10.13.60.113:8081/get_places?type=food"
+        elif "drink" in payload:
+            place_url = f"http://10.13.60.113:8081/get_places?type=drink"
         else:
-            place_url = "http://127.0.0.1:8081/get_places"
+            place_url = "http://10.13.60.113:8081/get_places"
     else:
-        place_url = "http://127.0.0.1:8081/get_places"
+        place_url = "http://10.13.60.113:8081/get_places"
     async with httpx.AsyncClient() as client:
         response = await client.get(place_url)
-        return response.json()
+        if response.status_code == 200:  
+            return f"response_text: {response.json()}"
+        else:  
+            print(f"Error: Received status code {response.status_code}")  
+        return {"error": "Failed to retrieve shop list."}  
 
 @mcp.tool(
         title="查詢餐廳菜單",
         name="mcp_query_menu", # Please note that this will override the function name.
-        description="Help users to get the menu of queried restaurant or drink shop. Call mcp_query_menu with a JSON string, e.g. {\"place_name\":\"McDonald's\"}.",
+        description="Help users to get the menu of queried restaurant or drink shop. Call mcp_query_menu with a JSON string, e.g. {\"payload\": {\"place_name\":\"McDonalds\"}} to get the menu, please note that the value of place_name is shop name from user.",
         tags={"catalog", "retriever"})
-async def mcp_query_menu(place_name: str):
+async def mcp_query_menu(payload: str):
     try:
-        data = json.loads(place_name)
+        data = json.loads(payload)
     except Exception as err:
       raise HTTPException(status_code=400, detail=str(err))
     async with httpx.AsyncClient() as client:
-        response = await client.post("http://127.0.0.1:8081/query_menu", json=data)
-        return response.json()
+        response = await client.post("http://10.13.60.113:8081/query_menu", json=data)
+        if response.status_code == 200:  
+            return f"response_text: {response.json()}"
+        else:  
+            print(f"Error: Received status code {response.status_code}")  
+        return {"error": "Failed to query menu."}  
 
 @mcp.tool(
         title="新增餐廳",
         name="mcp_add_gourmet_shop", # Please note that this will override the function name.
         description="Help users to add gourmet shop to the database. Call mcp_add_gourmet_shop with a JSON string, e.g. {\"name\": \"McDonald's\",\"type\": \"food\",\"specialty\":\"Hamburger, Fried Chicken, Fries, McNuggets\",\"menu\": [{\"Big Mac\": \"81\"},{\"McNuggets 6pcs\": \"69\"}]}.",
         tags={"catalog", "creator"})
-async def mcp_add_gourmet_shop(shop_info: str):
+async def mcp_add_gourmet_shop(payload: str):
     try:
-        data = json.loads(shop_info)
+        data = json.loads(payload)
     except Exception as err:
       raise HTTPException(status_code=400, detail=str(err))
     async with httpx.AsyncClient() as client:
-        response = await client.post("http://127.0.0.1:8081/create_place", json=data)
-        return response.json()
+        response = await client.post("http://10.13.60.113:8081/create_place", json=data)
+        if response.status_code == 200:  
+            return f"response_text: {response.json()}"
+        else:  
+            print(f"Error: Received status code {response.status_code}")  
+        return {"error": "Failed to add shop."}  
 
-#待做
 @mcp.tool(
         title="更新餐廳菜單",
         name="mcp_update_menu", # Please note that this will override the function name.
-        description="Help users to update the menu of a gourmet shop. Call mcp_update_menu with a JSON string, e.g. [{\"place_name\": \"MacDonalds\",\"updated_menu\":[{\"BigMac\": \"81\"},{\"McNuggets 6pcs\": \"69\"}]}].",
+        description="Help users to update the menu of a gourmet shop. Call mcp_update_menu with a JSON string, e.g. {\"place_name\": \"MacDonalds\",\"updated_menu\":[{\"BigMac\": \"81\"},{\"McNuggets 6pcs\": \"69\"}]}.",
         tags={"catalog", "updater"})
-async def mcp_update_menu(new_menu: str):
+async def mcp_update_menu(payload: str):
     try:
-        data = json.loads(new_menu)
+        data = json.loads(payload)
     except Exception as err:
       raise HTTPException(status_code=400, detail=str(err))
     async with httpx.AsyncClient() as client:
-        response = await client.put("http://127.0.0.1:8081/update_menu", json=data)
-        return response.json()
+        response = await client.request(
+            method="PUT",
+            url="http://10.13.60.113:8081/update_menu",
+            json=data
+        )
+        if response.status_code == 200:  
+            return f"response_text: {response.json()}"
+        else:  
+            print(f"Error: Received status code {response.status_code}")  
+        return {"error": "Failed to update menu."}  
 
 @mcp.tool(
         title="刪除餐廳",
         name="mcp_delete_gourmet_shop", # Please note that this will override the function name.
-        description="Help users to delete a gourmet shop from database. Call mcp_delete_gourmet_shop with a JSON string, e.g. {\"place_name\":\"McDonald's\"}.",
+        description="Help users to delete a gourmet shop from database. Call mcp_delete_gourmet_shop with a JSON string, e.g. {\"payload\": {\"place_name\":\"McDonalds\"}}.",
         tags={"catalog", "deleter"})
-async def mcp_delete_gourmet_shop(place_name: str):
+async def mcp_delete_gourmet_shop(payload: str):
     try:
-        data = json.loads(place_name)
+        data = json.loads(payload)
     except Exception as err:
       raise HTTPException(status_code=400, detail=str(err))
     async with httpx.AsyncClient() as client:
-        response = await client.delete("http://127.0.0.1:8081/delete_place", json=data)
-        return response
+        response = await client.request(
+            method="DELETE",
+            url="http://10.13.60.113:8081/delete_place",
+            json=data
+        )
+        if response.status_code == 200:  
+            return f"response_text: {response}"
+        else:  
+            print(f"Error: Received status code {response.status_code}")  
+        return {"error": "Failed to delete shop."}  
 
 # MCP 測試用
 
@@ -329,11 +361,10 @@ async def mcp_delete_gourmet_shop(place_name: str):
         tags={"catalog", "retriever"})
 async def mcp_retrieve_kbtest01():
     response = {
-        "state": "succeed",
-        "content_id": "kbtest_001",
-        "content": "您所查詢的信用卡發卡案件編號是TEST20250901。"
+        "text_id": "kbtest_001",
+        "text": "您所查詢的信用卡發卡案件編號是TEST20250901。"
     }
-    return response
+    return f"response_text: {response}"
 
 @mcp.tool(
         title="查詢向量資料庫KBTEST02",
@@ -342,11 +373,10 @@ async def mcp_retrieve_kbtest01():
         tags={"catalog", "retriever"})
 async def mcp_retrieve_kbtest02():
     response = {
-        "state": "succeed",
-        "content_id": "kbtest_002",
-        "content": "您查詢的貸款案件TEST20250901目前的狀態是正在審核客戶資料中。"
+        "text_id": "kbtest_002",
+        "text": "您查詢的貸款案件TEST20250901目前的狀態是正在審核客戶資料中。"
     }
-    return response
+    return f"response_text: {response}"
 
 @mcp.tool(
         title="查詢向量資料庫KBTEST03",
@@ -355,11 +385,10 @@ async def mcp_retrieve_kbtest02():
         tags={"catalog", "retriever"})
 async def mcp_retrieve_kbtest03():
     response = {
-        "state": "succeed",
-        "content_id": "kbtest_003",
-        "content": "您查詢的待審案件TEST20250901已審核通過。"
+        "text_id": "kbtest_003",
+        "text": "您查詢的待審案件TEST20250901已審核通過。"
     }
-    return response
+    return f"response_text: {response}"
 
 # Mounting MCP to FastAPI
 mcp_app = mcp.http_app(transport="streamable-http")
@@ -367,12 +396,12 @@ routes = [
     *mcp_app.routes,
     *app.routes
 ]
-jasonapp = FastAPI(
+gourmetapp = FastAPI(
     routes=routes,
     lifespan=mcp_app.lifespan,
 )
 
-jasonapp.add_middleware(
+gourmetapp.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
@@ -381,4 +410,4 @@ jasonapp.add_middleware(
 )
 
 if __name__ == "__main__":
-    uvicorn.run(jasonapp, host="127.0.0.1", port=8081)
+    uvicorn.run(gourmetapp, host="0.0.0.0", port=8081)
