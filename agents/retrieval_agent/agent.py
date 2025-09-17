@@ -7,7 +7,7 @@ load_dotenv()
 agent_prompt = ""
 milvus_tool = MilvusTool()
 
-rag_agent = Agent(
+root_agent = Agent(
     model='gemini-2.5-flash',
     name='ask_rag_agent',
     instruction=agent_prompt,

@@ -14,9 +14,9 @@ from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount
 from typing import Optional, List, Dict
-import sys # Disable when executing under root folder
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Disable when executing under root folder
-from utils.llm_client import GeminiClient, OllamaClient
+# import sys # Disable when executing under root folder
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Disable when executing under root folder
+# from utils.llm_client import GeminiClient, OllamaClient
 
 class PlaceResponse(BaseModel):
     """
@@ -89,7 +89,7 @@ async def locked_file_operation(mode: str = "r"):
     finally:
         file_lock.release()
 
-@app.get("/get_places", response_model=List[PlaceResponse])
+@app.get("/get_places", response_model=List[PlaceResponse], description="列出所有登錄的餐廳或飲料店")
 async def get_places(type: Optional[str] = None):
     with open(places_path, "r", encoding="utf-8") as file:
         data = json.load(file)
@@ -98,7 +98,7 @@ async def get_places(type: Optional[str] = None):
         places = [place for place in places if place.type == type]
     return places
 
-@app.post("/query_menu")
+@app.post("/query_menu", description="查詢特定餐廳或飲料店的菜單")
 async def query_menu(payload: PlaceName):
     try:
         data = payload.model_dump()
@@ -116,7 +116,7 @@ async def query_menu(payload: PlaceName):
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format")
 
-@app.post("/create_place")
+@app.post("/create_place", description="新增餐廳或飲料店")
 async def create_place(new_place: NewPlace):
    try:
        async with locked_file_operation("r") as file:
@@ -148,7 +148,7 @@ async def create_place(new_place: NewPlace):
    except Exception as errmsg:
        raise HTTPException(status_code=500, detail=str(errmsg))
 
-@app.put("/update_menu")
+@app.put("/update_menu", description="更新特定餐廳或飲料店的菜單")
 async def update_menu(payload: UpdateMenu):
    try:
        data = payload.model_dump()
@@ -179,7 +179,7 @@ async def update_menu(payload: UpdateMenu):
    except Exception as err:
        raise HTTPException(status_code=500, detail=str(err))
 
-@app.delete("/delete_place")
+@app.delete("/delete_place", description="刪除特定餐廳或飲料店")
 async def delete_place(payload: PlaceName):
    try:
        data = payload.model_dump()
@@ -208,7 +208,7 @@ async def delete_place(payload: PlaceName):
    except Exception as err:
        raise HTTPException(status_code=500, detail=str(err))
 
-@app.post("/random_place")
+@app.post("/random_place", description="隨機決定一家餐廳或飲料店")
 async def random_place(payload: PlaceType):
   try:
       data = payload.model_dump()
@@ -396,12 +396,12 @@ routes = [
     *mcp_app.routes,
     *app.routes
 ]
-gourmetapp = FastAPI(
+mcp_gourmet = FastAPI(
     routes=routes,
     lifespan=mcp_app.lifespan,
 )
 
-gourmetapp.add_middleware(
+mcp_gourmet.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
@@ -410,4 +410,4 @@ gourmetapp.add_middleware(
 )
 
 if __name__ == "__main__":
-    uvicorn.run(gourmetapp, host="0.0.0.0", port=8081)
+    uvicorn.run(mcp_gourmet, host="0.0.0.0", port=8081)
