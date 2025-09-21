@@ -8,18 +8,23 @@ from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnecti
 
 # The Version using LiteLLM
 load_dotenv(".env")
+# 如果要使用AOAI模型就必須在環境變數中定義重要資訊
+# AZURE_API_KEY = os.getenv("AZURE_API_KEY")
+# AZURE_API_BASE= os.getenv("AZURE_API_BASE")
+# AZURE_API_VERSION = os.getenv("AZURE_API_VERSION")
 auth_headers = {"Authorization":f"Bearer {os.getenv("LITELLM_KEY")}"}
 litellm_base = os.getenv("LITELLM_BASE")
 
 def get_system_time() -> str:    
     now = datetime.datetime.now()    
     iso8601_time = now.isoformat()  
-    return iso8601_time  
+    return iso8601_time
 
 # You must name main agent as root_agent in agent.py for ADK Web to run properly.
 root_agent = LlmAgent(
     model=LiteLlm(
         model="hosted_vllm/hosted_vllm/Qwen3-32B", # ADK會將第一個/前視為provider，所以litellm中provider要重複
+        # model="azure/gpt-4o", # AOAI 必須使用LiteLLM轉譯後才能使用
         api_base=litellm_base,
         extra_headers=auth_headers,
     ),
