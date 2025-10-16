@@ -14,10 +14,14 @@ class HttpPostPayload(BaseModel):
 mcp = FastMCP(name="HTTP Proxy Server", instructions="此伺服器提供四種 HTTP 方法，以代理 LLM 對外部 API 進行調用。")
 
 @mcp.tool
-def http_get(url: str):
+def get_openapi_schema(url: str):
     """
-    執行一個 HTTP GET 請求，並回傳伺服器響應。用於獲取遠端資源，不產生任何副作用。
+    對一個未知內容的API端點執行HTTP GET 請求，並回傳該API端點的Openapi Schema，以便後續生成訪問端點的請求指令。
     """
+    if url.endswith('/'):
+        base = url + "openapi.json"
+    else:
+        base = url + "/openapi.json"
     try:
         response = requests.get(url)
         response.raise_for_status()

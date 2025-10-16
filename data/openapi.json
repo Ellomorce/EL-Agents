@@ -1,0 +1,452 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Lunch&Drink API",
+        "version": "0.1.0"
+    },
+    "paths": {
+        "/": {
+            "get": {
+                "summary": "Read Root",
+                "operationId": "read_root__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "summary": "Health Check",
+                "operationId": "health_check_health_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/get_places": {
+            "get": {
+                "summary": "Get Places",
+                "description": "列出所有登錄的餐廳或飲料店",
+                "operationId": "get_places_get_places_get",
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Type"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PlaceResponse"
+                                    },
+                                    "title": "Response Get Places Get Places Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/query_menu": {
+            "post": {
+                "summary": "Query Menu",
+                "description": "查詢特定餐廳或飲料店的菜單",
+                "operationId": "query_menu_query_menu_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlaceName"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/create_place": {
+            "post": {
+                "summary": "Create Place",
+                "description": "新增餐廳或飲料店",
+                "operationId": "create_place_create_place_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewPlace"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/update_menu": {
+            "put": {
+                "summary": "Update Menu",
+                "description": "更新特定餐廳或飲料店的菜單",
+                "operationId": "update_menu_update_menu_put",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateMenu"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/delete_place": {
+            "delete": {
+                "summary": "Delete Place",
+                "description": "刪除特定餐廳或飲料店",
+                "operationId": "delete_place_delete_place_delete",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlaceName"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/random_place": {
+            "post": {
+                "summary": "Random Place",
+                "description": "隨機決定一家餐廳或飲料店",
+                "operationId": "random_place_random_place_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlaceType"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "MenuItem": {
+                "additionalProperties": {
+                    "type": "string"
+                },
+                "type": "object",
+                "title": "MenuItem",
+                "description": "Represents a single item in the menu."
+            },
+            "NewPlace": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Type"
+                    },
+                    "specialty": {
+                        "type": "string",
+                        "title": "Specialty"
+                    },
+                    "menu": {
+                        "anyOf": [
+                            {
+                                "items": {
+                                    "$ref": "#/components/schemas/MenuItem"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Menu"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "name",
+                    "type",
+                    "specialty"
+                ],
+                "title": "NewPlace",
+                "description": "Request Body of Create Gourmet Shop."
+            },
+            "PlaceName": {
+                "properties": {
+                    "place_name": {
+                        "type": "string",
+                        "title": "Place Name"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "place_name"
+                ],
+                "title": "PlaceName",
+                "description": "Request Body of Query Menu, Delete Gourmet Shop or other functions which requiring only place_name for input."
+            },
+            "PlaceResponse": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "title": "Id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Type"
+                    },
+                    "specialty": {
+                        "type": "string",
+                        "title": "Specialty"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "specialty"
+                ],
+                "title": "PlaceResponse",
+                "description": "Return Format of Get Gourmets List."
+            },
+            "PlaceType": {
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "title": "Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "type"
+                ],
+                "title": "PlaceType",
+                "description": "Request Body of Randomly Picking a Gourmet Shop."
+            },
+            "UpdateMenu": {
+                "properties": {
+                    "place_name": {
+                        "type": "string",
+                        "title": "Place Name"
+                    },
+                    "updated_menu": {
+                        "items": {
+                            "$ref": "#/components/schemas/MenuItem"
+                        },
+                        "type": "array",
+                        "title": "Updated Menu"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "place_name",
+                    "updated_menu"
+                ],
+                "title": "UpdateMenu",
+                "description": "Request Body of Update Menu of the Gourmet Shop."
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            }
+        }
+    }
+}
