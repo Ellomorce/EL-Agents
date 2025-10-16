@@ -1,9 +1,9 @@
 # EL-Agents
+
 My Agent Template
 
-## Main Framework
+## 參考
 
-+ Google ADK
-+ Pydantic-AI
-
-此REPO暫不採用LangChain Agent
+https://langchain-ai.github.io/langgraph/#get-started
+https://langchain-ai.github.io/langgraph/agents/run_agents/#basic-usage
+https://www.mropengate.com/2025/05/langchain-ai-agent.html

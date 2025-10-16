@@ -9,23 +9,26 @@ from pydantic import BaseModel, Field
 import json
 import uvicorn
 
+# FastAPI 應用
 app = FastAPI(
     title="日期擷取 Agent API",
     description="從用戶查詢中提取日期時間資訊並轉換為指定格式",
     version="1.0.0"
 )
 
+# 請求模型
 class DateExtractionRequest(BaseModel):
     query: str = Field(..., description="用戶查詢文本")
     output_format: str = Field(
         default="iso8601",
-        description="輸出格式: iso8601, timestamp, readable"
+        description="輸出格式：iso8601, timestamp, readable"
     )
     model_name: str = Field(
         default="hosted_vllm/gpt-oss-120b",
-        description="LiteLLM Model"
+        description="LiteLLM 模型名稱"
     )
 
+# 響應模型
 class DateInfo(BaseModel):
     original: str
     type: Optional[str] = None
@@ -41,6 +44,7 @@ class DateExtractionResponse(BaseModel):
     formatted_output: str
     error: Optional[str] = None
 
+# LangGraph 狀態定義
 class DateExtractionState(TypedDict):
     messages: Annotated[list, add_messages]
     user_query: str
@@ -83,16 +87,22 @@ def extract_dates_node(state: DateExtractionState) -> DateExtractionState:
     model_name = state.get("model_name", "hosted_vllm/gpt-oss-120b")
     current_datetime = datetime.now().isoformat()
     
-    llm = ChatLiteLLM(model=model_name, temperature=0, )
+    # 初始化 LiteLLM
+    llm = ChatLiteLLM(model=model_name, temperature=0)
     
+    # 構建提示詞
     system_msg = SystemMessage(content=SYSTEM_PROMPT.format(
         current_datetime=current_datetime
     ))
     user_msg = HumanMessage(content=f"請從以下查詢中提取日期時間資訊：\n\n{user_query}")
     
     try:
+        # 調用 LLM
         response = llm.invoke([system_msg, user_msg])
+        
+        # 解析 JSON 響應
         content = response.content
+        # 嘗試提取 JSON（可能包含在 markdown 代碼塊中）
         if "```json" in content:
             json_str = content.split("```json")[1].split("```")[0].strip()
         elif "```" in content:
@@ -134,12 +144,14 @@ def format_dates_node(state: DateExtractionState) -> DateExtractionState:
                 "type": date_info.get("type"),
             }
             
+            # 根據指定格式轉換
             if output_format == "iso8601":
                 formatted_date["start"] = date_info.get("start_datetime")
                 if date_info.get("end_datetime"):
                     formatted_date["end"] = date_info.get("end_datetime")
             
             elif output_format == "timestamp":
+                # 轉換為 Unix 時間戳
                 start_dt = datetime.fromisoformat(date_info.get("start_datetime"))
                 formatted_date["start"] = int(start_dt.timestamp())
                 if date_info.get("end_datetime"):
@@ -147,6 +159,7 @@ def format_dates_node(state: DateExtractionState) -> DateExtractionState:
                     formatted_date["end"] = int(end_dt.timestamp())
             
             elif output_format == "readable":
+                # 轉換為可讀格式
                 start_dt = datetime.fromisoformat(date_info.get("start_datetime"))
                 formatted_date["start"] = start_dt.strftime("%Y年%m月%d日 %H:%M:%S")
                 if date_info.get("end_datetime"):
@@ -177,9 +190,15 @@ def should_continue(state: DateExtractionState) -> str:
 def create_date_extraction_agent():
     """創建日期擷取 Agent 圖"""
     workflow = StateGraph(DateExtractionState)
+    
+    # 添加節點
     workflow.add_node("extract", extract_dates_node)
     workflow.add_node("format", format_dates_node)
+    
+    # 設定入口點
     workflow.set_entry_point("extract")
+    
+    # 添加邊
     workflow.add_conditional_edges(
         "extract",
         should_continue,
@@ -192,11 +211,13 @@ def create_date_extraction_agent():
     
     return workflow.compile()
 
+# 全局 Agent 實例
 agent = create_date_extraction_agent()
 
+# FastAPI 路由
 @app.get("/")
 async def root():
-    """存活探針"""
+    """健康檢查端點"""
     return {
         "status": "running",
         "service": "日期擷取 Agent API",
@@ -215,6 +236,7 @@ async def extract_dates(request: DateExtractionRequest):
         DateExtractionResponse: 提取的日期資訊
     """
     try:
+        # 執行 Agent
         result = agent.invoke({
             "user_query": request.query,
             "output_format": request.output_format,
@@ -224,6 +246,8 @@ async def extract_dates(request: DateExtractionRequest):
             "formatted_output": None,
             "error": None
         })
+        
+        # 解析結果
         if result.get("error"):
             return DateExtractionResponse(
                 success=False,
@@ -232,6 +256,8 @@ async def extract_dates(request: DateExtractionRequest):
                 formatted_output="",
                 error=result["error"]
             )
+        
+        # 解析格式化輸出
         try:
             formatted_data = json.loads(result["formatted_output"])
             date_infos = [DateInfo(**item) for item in formatted_data]
@@ -289,10 +315,11 @@ async def extract_dates_batch(queries: List[str], output_format: str = "iso8601"
     
     return {"results": results}
 
+# 啟動服務
 if __name__ == "__main__":
     uvicorn.run(
-        "agent:app",
+        "main:app",  # 請根據你的檔案名稱調整
         host="0.0.0.0",
-        port=4203,
+        port=8000,
         reload=True
     )
