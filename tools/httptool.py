@@ -23,7 +23,7 @@ def get_openapi_schema(url: str):
     else:
         base = url + "/openapi.json"
     try:
-        response = requests.get(url)
+        response = requests.get(base)
         response.raise_for_status()
         try:
             return response.json()
